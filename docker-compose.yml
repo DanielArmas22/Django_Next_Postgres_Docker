@@ -1,0 +1,63 @@
+services:
+  db:
+    image: postgres:17
+    restart: always # reiniciar el contenedor en caso de fallo
+    container_name: postgresql # nombre del contenedor
+    #volumes para persistencia de datos, se monta el directorio /var/lib/postgresql/data ya que se monta en una maquina virtual con linux
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+      #variables de entorno para la configuracion de la base de datos
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      #puerto de la base de datos "maquina:contenedor"
+    ports:
+      - "5432:5432" # mapeo de puertos
+    env_file:
+      - .env
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "8080:80" # mapeo de puertos
+    depends_on:
+      - db # dependencia del servicio db
+    env_file:
+      - .env
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: django
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app/backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_NAME: ${POSTGRES_DB}
+      DATABASE_USERNAME: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT}
+    depends_on:
+      - db
+    env_file:
+      - .env
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nextjs
+    command: npm run dev
+    volumes:
+      - ./frontend:/app/frontend
+      - ./frontend/node_modules:/app/frontend/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
